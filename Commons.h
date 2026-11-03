@@ -130,7 +130,10 @@ constexpr float kAmbienceInfiniteFeedbackLevel = 1.1f;
 constexpr int32_t kShimmerWindowSamples = 2400; // 50 ms @ audio rate
 constexpr int32_t kShimmerWindowOffsetSamples = 300; // Right channel window is longer, for decorrelation
 constexpr int32_t kShimmerMinDelaySamples = 2;
-constexpr float kShimmerRatio = 2.f; // One octave up
+constexpr int kShimmerNofRatios = 6;
+constexpr float kShimmerRatios[kShimmerNofRatios] = { 0.5f, 4.f / 3.f, 1.5f, 2.f, 3.f, 4.f }; // Octave down, fourth, fifth, octave, octave + fifth, two octaves
+constexpr int kShimmerDefaultRatioIndex = 3; // One octave up
+constexpr float kShimmerIntervalDefault = 0.6f; // Knob position of the default ratio
 constexpr float kShimmerLpCoeff = 0.5f; // ~5.3 kHz @ audio rate, tames the climbing octaves
 constexpr float kShimmerMaxAmount = 0.5f; // Level of the shifted copy added to the tail on each pass
 
@@ -194,6 +197,7 @@ struct PatchCtrls
     float ambienceSpacetimeRndAmount;
     float ambienceAutoPan;
     float ambienceShimmer;
+    float ambienceShimmerInterval;
 
     float modLevel;
     float modLevelRndAmount;
@@ -257,6 +261,7 @@ struct PatchState
     bool modSpeedLockFlag;
     bool filterModeFlag;
     bool filterPositionFlag;
+    bool shimmerIntervalFlag;
 
     bool moving[14];
 

@@ -303,6 +303,8 @@ private:
     Diffuse *diffusers_[2];
     ReversedBuffer *reversers_[2];
     PitchShifter *shifters_[2];
+    HysteresisQuantizer shimmerIntervalQuantizer_;
+    int shimmerRatioIndex_;
 
     EnvFollower* ef_[2];
     Compressor* comp_[2];
@@ -365,6 +367,22 @@ private:
             decay_ = 1.f;
         }
         SetDecayTime(decayLUT.Quantized(decay_));
+    }
+
+    void SetShimmerInterval(float value)
+    {
+        int index = shimmerIntervalQuantizer_.Process(value);
+        if (index == shimmerRatioIndex_)
+        {
+            patchState_->shimmerIntervalFlag = false;
+
+            return;
+        }
+
+        shimmerRatioIndex_ = index;
+        patchState_->shimmerIntervalFlag = true;
+        shifters_[LEFT_CHANNEL]->SetRatio(kShimmerRatios[index]);
+        shifters_[RIGHT_CHANNEL]->SetRatio(kShimmerRatios[index]);
     }
 
     void SetSpacetime(float value)
@@ -431,7 +449,7 @@ public:
             dampFilters_[i] = Damp::create(patchState_->sampleRate);
             diffusers_[i] = Diffuse::create();
             reversers_[i] = ReversedBuffer::create(kAmbienceBufferSize);
-            shifters_[i] = PitchShifter::create(kShimmerWindowSamples + i * kShimmerWindowOffsetSamples, kShimmerRatio);
+            shifters_[i] = PitchShifter::create(kShimmerWindowSamples + i * kShimmerWindowOffsetSamples, kShimmerRatios[kShimmerDefaultRatioIndex]);
             ef_[i] = EnvFollower::create();
             dc_[i] = DcBlockingFilter::create();
             comp_[i] = Compressor::create(patchState_->sampleRate);
@@ -452,6 +470,9 @@ public:
         amp_ = 1.f;
         pan_ = 0.5f;
         shimmer_ = 0.f;
+        shimmerIntervalQuantizer_.Init(kShimmerNofRatios, 0.15f, false);
+        shimmerRatioIndex_ = kShimmerDefaultRatioIndex;
+        patchState_->shimmerIntervalFlag = false;
         xi_ = 1.f / patchState_->blockSize;
     }
     ~Ambience()
@@ -495,6 +516,8 @@ public:
         float t = Modulate(patchCtrls_->ambienceSpacetime, patchCtrls_->ambienceSpacetimeModAmount, patchState_->modValue, patchCtrls_->ambienceSpacetimeCvAmount, patchCvs_->ambienceSpacetime, -1.f, 1.f, patchState_->modAttenuverters, patchState_->cvAttenuverters);
         SetSpacetime(t);
 
+        SetShimmerInterval(patchCtrls_->ambienceShimmerInterval);
+
         float r = 1.f - reverse_;
         float x = 0;
 
@@ -514,7 +537,7 @@ public:
             reversers_[RIGHT_CHANNEL]->Process(rIn);
 
             // Shimmer: add a pitch shifted copy of the tails before they're
-            // fed back, so octaves build up on every pass through the
+            // fed back, so intervals build up on every pass through the
             // diffusers. The tail itself is left alone, so it decays as it
             // would without shimmer: taking the shifted part out of it
             // drains the played notes within a few passes.

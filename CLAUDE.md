@@ -30,6 +30,12 @@ PRs against Befaco unless asked.
 - `Ui.h`: SHIFT + DECAY = `ambienceShimmer` (that ALT slot was `NULL`),
   squared in `Ambience.h`. Saved/loaded as ALT `values[6]`/`cfg[6]` in
   `iroi.alt`; old saves load as 0.
+- SHIFT + ECHO REPEATS = `ambienceShimmerInterval` (also a `NULL` ALT slot
+  before): six steps via `HysteresisQuantizer`, `kShimmerRatios` octave down,
+  fourth, fifth, octave (default, knob 0.6), octave + fifth, two octaves.
+  Saved as ALT `values[7]` relative to `kShimmerIntervalDefault`, so old saves
+  (0) load as the octave. MAP blinks once per step while SHIFT is held
+  (`shimmerIntervalFlag`, same pattern as the SHIFT blink for filter mode).
 - No MIDI CC for shimmer (MIDI CC numbers are the `ParamMidi` enum index and
   every `midiOuts_` entry must be created, so adding one needs care).
 
@@ -104,5 +110,4 @@ PRs against Befaco unless asked.
    whether the amount (`kShimmerMaxAmount`) and brightness are right. The user
    prefers testing off-device before flashing.
 2. `load` on the module, listen, tune `kShimmer*` (window, LP, amount curve).
-3. Ideas: octave/fifth choice on SHIFT + ECHO REPEATS (ALT slot also `NULL`),
-   shimmer CV/MIDI, LED feedback.
+3. Ideas: shimmer CV/MIDI.

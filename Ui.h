@@ -44,7 +44,7 @@ private:
 
     Schmitt undoRedoRandomTrigger_, mapAndRandomTrigger_,
         modTypeLockTrigger_, modSpeedLockTrigger_, saveTrigger_;
-    Schmitt filterModeTrigger_, filterPositionTrigger_;
+    Schmitt filterModeTrigger_, filterPositionTrigger_, shimmerIntervalTrigger_;
 
     int samplesSinceShiftPressed_, samplesSinceMapOrRandomPressed_,
         samplesSinceMapButtonPressed_, samplesSinceRandomMapInReceived_,
@@ -117,6 +117,7 @@ public:
         patchCtrls_->echoFilter = 0.5f;
         patchCtrls_->ambienceAutoPan = 0.f;
         patchCtrls_->ambienceShimmer = 0.f;
+        patchCtrls_->ambienceShimmerInterval = kShimmerIntervalDefault;
 
         // Modulation
         patchCtrls_->filterCutoffModAmount = 0.5f;
@@ -181,7 +182,7 @@ public:
                 &patchCtrls_->echoDensityCvAmount,
                 &patchCtrls_->echoDensityRndAmount, 0.005f);
         knobs_[PARAM_KNOB_ECHO_REPEATS] = KnobController::create(patchState_,
-            &patchCtrls_->echoRepeats, NULL, &patchCtrls_->echoRepeatsModAmount,
+            &patchCtrls_->echoRepeats, &patchCtrls_->ambienceShimmerInterval, &patchCtrls_->echoRepeatsModAmount,
             &patchCtrls_->echoRepeatsCvAmount,
             &patchCtrls_->echoRepeatsRndAmount);
 
@@ -357,6 +358,8 @@ public:
             knobs_[PARAM_KNOB_MOD_SPEED]->SetValue(cfg[4] / 8192.f, LockableParamName::PARAM_LOCKABLE_ALT); // Mod type
             knobs_[PARAM_KNOB_RESONATOR_TUNE]->SetValue(cfg[5] / 8192.f, LockableParamName::PARAM_LOCKABLE_ALT); // Reso dissonance
             knobs_[PARAM_KNOB_AMBIENCE_DECAY]->SetValue(cfg[6] / 8192.f, LockableParamName::PARAM_LOCKABLE_ALT); // Ambience shimmer
+            // Saved relative to the default, so saves from before it existed (0) load as the default.
+            knobs_[PARAM_KNOB_ECHO_REPEATS]->SetValue(cfg[7] / 8192.f + kShimmerIntervalDefault, LockableParamName::PARAM_LOCKABLE_ALT); // Ambience shimmer interval
         }
         Resource::destroy(resource);
     }
@@ -451,6 +454,7 @@ public:
             values[4] = patchCtrls_->modType;
             values[5] = patchCtrls_->resonatorDissonance;
             values[6] = patchCtrls_->ambienceShimmer;
+            values[7] = patchCtrls_->ambienceShimmerInterval - kShimmerIntervalDefault;
             break;
         case FUNC_MODE_MOD:
             values[0] = patchCtrls_->ambienceDecayModAmount;
@@ -604,6 +608,12 @@ public:
             filterModeTrigger_.Process(patchState_->filterModeFlag) ||
             filterPositionTrigger_.Process(patchState_->filterPositionFlag)) {
             leds_[LED_SHIFT]->Blink(2, true);
+        }
+
+        // MAP blinks on every shimmer interval step while SHIFT is held, but
+        // not when a saved interval is restored at startup.
+        if (shimmerIntervalTrigger_.Process(patchState_->shimmerIntervalFlag) && shiftButton_->IsOn()) {
+            leds_[LED_MAP]->Blink(1, false, !leds_[LED_MAP]->IsOn());
         }
     }
 
