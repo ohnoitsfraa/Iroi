@@ -116,6 +116,7 @@ public:
         patchCtrls_->resonatorDissonance = 0.f;
         patchCtrls_->echoFilter = 0.5f;
         patchCtrls_->ambienceAutoPan = 0.f;
+        patchCtrls_->ambienceShimmer = 0.f;
 
         // Modulation
         patchCtrls_->filterCutoffModAmount = 0.5f;
@@ -190,7 +191,7 @@ public:
             &patchCtrls_->ambienceSpacetimeCvAmount,
             &patchCtrls_->ambienceSpacetimeRndAmount, 0.005f);
         knobs_[PARAM_KNOB_AMBIENCE_DECAY] = KnobController::create(patchState_,
-            &patchCtrls_->ambienceDecay, NULL, &patchCtrls_->ambienceDecayModAmount,
+            &patchCtrls_->ambienceDecay, &patchCtrls_->ambienceShimmer, &patchCtrls_->ambienceDecayModAmount,
             &patchCtrls_->ambienceDecayCvAmount,
             &patchCtrls_->ambienceDecayRndAmount);
 
@@ -355,6 +356,7 @@ public:
             knobs_[PARAM_KNOB_FILTER_CUTOFF]->SetValue(cfg[3] / 8192.f, LockableParamName::PARAM_LOCKABLE_ALT); // Filter mode
             knobs_[PARAM_KNOB_MOD_SPEED]->SetValue(cfg[4] / 8192.f, LockableParamName::PARAM_LOCKABLE_ALT); // Mod type
             knobs_[PARAM_KNOB_RESONATOR_TUNE]->SetValue(cfg[5] / 8192.f, LockableParamName::PARAM_LOCKABLE_ALT); // Reso dissonance
+            knobs_[PARAM_KNOB_AMBIENCE_DECAY]->SetValue(cfg[6] / 8192.f, LockableParamName::PARAM_LOCKABLE_ALT); // Ambience shimmer
         }
         Resource::destroy(resource);
     }
@@ -448,6 +450,7 @@ public:
             values[3] = patchCtrls_->filterMode;
             values[4] = patchCtrls_->modType;
             values[5] = patchCtrls_->resonatorDissonance;
+            values[6] = patchCtrls_->ambienceShimmer;
             break;
         case FUNC_MODE_MOD:
             values[0] = patchCtrls_->ambienceDecayModAmount;

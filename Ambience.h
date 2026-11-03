@@ -7,6 +7,7 @@
 #include "EnvFollower.h"
 #include "DcBlockingFilter.h"
 #include "Compressor.h"
+#include "PitchShifter.h"
 
 class Damp
 {
@@ -301,12 +302,13 @@ private:
     Damp *dampFilters_[2];
     Diffuse *diffusers_[2];
     ReversedBuffer *reversers_[2];
+    PitchShifter *shifters_[2];
 
     EnvFollower* ef_[2];
     Compressor* comp_[2];
     DcBlockingFilter* dc_[2];
 
-    float amp_, pan_, decay_, spaceTime_, dryWet_;
+    float amp_, pan_, decay_, spaceTime_, dryWet_, shimmer_;
     float reverse_;
     float xi_;
 
@@ -429,6 +431,7 @@ public:
             dampFilters_[i] = Damp::create(patchState_->sampleRate);
             diffusers_[i] = Diffuse::create();
             reversers_[i] = ReversedBuffer::create(kAmbienceBufferSize);
+            shifters_[i] = PitchShifter::create(kShimmerWindowSamples + i * kShimmerWindowOffsetSamples, kShimmerRatio);
             ef_[i] = EnvFollower::create();
             dc_[i] = DcBlockingFilter::create();
             comp_[i] = Compressor::create(patchState_->sampleRate);
@@ -448,6 +451,7 @@ public:
 
         amp_ = 1.f;
         pan_ = 0.5f;
+        shimmer_ = 0.f;
         xi_ = 1.f / patchState_->blockSize;
     }
     ~Ambience()
@@ -457,6 +461,7 @@ public:
             Damp::destroy(dampFilters_[i]);
             Diffuse::destroy(diffusers_[i]);
             ReversedBuffer::destroy(reversers_[i]);
+            PitchShifter::destroy(shifters_[i]);
             EnvFollower::destroy(ef_[i]);
             DcBlockingFilter::destroy(dc_[i]);
             Compressor::destroy(comp_[i]);
@@ -494,6 +499,8 @@ public:
         float x = 0;
 
         ParameterInterpolator volParam = ParameterInterpolator(&dryWet_, patchCtrls_->ambienceVol, size);
+        // Squared for finer control over the subtle amounts.
+        ParameterInterpolator shimmerParam = ParameterInterpolator(&shimmer_, patchCtrls_->ambienceShimmer * patchCtrls_->ambienceShimmer, size);
 
         for (size_t i = 0; i < size; i++)
         {
@@ -506,8 +513,17 @@ public:
             reversers_[LEFT_CHANNEL]->Process(lIn);
             reversers_[RIGHT_CHANNEL]->Process(rIn);
 
-            float leftFb = dampFilters_[LEFT_CHANNEL]->Process(left + diffusers_[RIGHT_CHANNEL]->GetFbOut());
-            float rightFb = dampFilters_[RIGHT_CHANNEL]->Process(right + diffusers_[LEFT_CHANNEL]->GetFbOut());
+            // Shimmer: pitch shift the tails before they're fed back, so
+            // they climb an octave on every pass through the diffusers.
+            // The shifters always run to keep their buffers current.
+            float s = shimmerParam.Next();
+            float leftTail = diffusers_[RIGHT_CHANNEL]->GetFbOut();
+            float rightTail = diffusers_[LEFT_CHANNEL]->GetFbOut();
+            leftTail += (shifters_[LEFT_CHANNEL]->Process(leftTail) - leftTail) * s;
+            rightTail += (shifters_[RIGHT_CHANNEL]->Process(rightTail) - rightTail) * s;
+
+            float leftFb = dampFilters_[LEFT_CHANNEL]->Process(left + leftTail);
+            float rightFb = dampFilters_[RIGHT_CHANNEL]->Process(right + rightTail);
 
             leftFb = HardClip(left * (1.f - pan_) + leftFb);
             rightFb = HardClip(right * pan_ + rightFb);

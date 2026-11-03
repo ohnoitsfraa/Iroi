@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (shimmer fork)
+
+- Shimmer reverb: SHIFT + DECAY sets how much of the Ambience tail is pitch shifted one octave up on every pass.
+
 ## 1.0.1 (2026-05-20)
 
 - Cleaner CVs.

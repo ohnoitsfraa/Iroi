@@ -127,6 +127,12 @@ constexpr float kAmbienceMakeupGain = 4.f;
 constexpr float kAmbienceInfiniteFeedbackThreshold = 0.97f;
 constexpr float kAmbienceInfiniteFeedbackLevel = 1.1f;
 
+constexpr int32_t kShimmerWindowSamples = 2400; // 50 ms @ audio rate
+constexpr int32_t kShimmerWindowOffsetSamples = 300; // Right channel window is longer, for decorrelation
+constexpr int32_t kShimmerMinDelaySamples = 2;
+constexpr float kShimmerRatio = 2.f; // One octave up
+constexpr float kShimmerLpCoeff = 0.5f; // ~5.3 kHz @ audio rate, tames the climbing octaves
+
 static const float kOutputFadeInc = 1.f / 16.f;
 constexpr float kOutputMakeupGain = 1.f;
 
@@ -186,6 +192,7 @@ struct PatchCtrls
     float ambienceSpacetimeCvAmount;
     float ambienceSpacetimeRndAmount;
     float ambienceAutoPan;
+    float ambienceShimmer;
 
     float modLevel;
     float modLevelRndAmount;
