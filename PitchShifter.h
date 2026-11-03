@@ -76,10 +76,12 @@ public:
         float a = line_->read(kShimmerMinDelaySamples + phase_ * window_);
         float b = line_->read(kShimmerMinDelaySamples + phase2 * window_);
 
-        // The parabolic windows don't sum to one, so normalize them.
+        // Normalized for constant power: the taps are half a window apart,
+        // which for a reverb tail makes them uncorrelated. Normalizing the
+        // sum to one instead loses up to 3 dB at the crossover.
         float wa = Window(phase_);
         float wb = Window(phase2);
-        float out = (a * wa + b * wb) / (wa + wb);
+        float out = (a * wa + b * wb) / sqrtf(wa * wa + wb * wb);
 
         ONE_POLE(lp_, out, kShimmerLpCoeff);
 

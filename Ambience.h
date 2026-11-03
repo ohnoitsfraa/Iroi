@@ -513,14 +513,17 @@ public:
             reversers_[LEFT_CHANNEL]->Process(lIn);
             reversers_[RIGHT_CHANNEL]->Process(rIn);
 
-            // Shimmer: pitch shift the tails before they're fed back, so
-            // they climb an octave on every pass through the diffusers.
+            // Shimmer: add a pitch shifted copy of the tails before they're
+            // fed back, so octaves build up on every pass through the
+            // diffusers. The tail itself is left alone, so it decays as it
+            // would without shimmer: taking the shifted part out of it
+            // drains the played notes within a few passes.
             // The shifters always run to keep their buffers current.
-            float s = shimmerParam.Next();
+            float s = shimmerParam.Next() * kShimmerMaxAmount;
             float leftTail = diffusers_[RIGHT_CHANNEL]->GetFbOut();
             float rightTail = diffusers_[LEFT_CHANNEL]->GetFbOut();
-            leftTail += (shifters_[LEFT_CHANNEL]->Process(leftTail) - leftTail) * s;
-            rightTail += (shifters_[RIGHT_CHANNEL]->Process(rightTail) - rightTail) * s;
+            leftTail += shifters_[LEFT_CHANNEL]->Process(leftTail) * s;
+            rightTail += shifters_[RIGHT_CHANNEL]->Process(rightTail) * s;
 
             float leftFb = dampFilters_[LEFT_CHANNEL]->Process(left + leftTail);
             float rightFb = dampFilters_[RIGHT_CHANNEL]->Process(right + rightTail);

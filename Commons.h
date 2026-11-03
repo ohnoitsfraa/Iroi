@@ -132,6 +132,7 @@ constexpr int32_t kShimmerWindowOffsetSamples = 300; // Right channel window is 
 constexpr int32_t kShimmerMinDelaySamples = 2;
 constexpr float kShimmerRatio = 2.f; // One octave up
 constexpr float kShimmerLpCoeff = 0.5f; // ~5.3 kHz @ audio rate, tames the climbing octaves
+constexpr float kShimmerMaxAmount = 0.5f; // Level of the shifted copy added to the tail on each pass
 
 static const float kOutputFadeInc = 1.f / 16.f;
 constexpr float kOutputMakeupGain = 1.f;
