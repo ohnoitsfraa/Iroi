@@ -118,6 +118,10 @@ public:
         patchCtrls_->ambienceAutoPan = 0.f;
         patchCtrls_->ambienceShimmer = 0.f;
         patchCtrls_->ambienceShimmerInterval = kShimmerIntervalDefault;
+        patchCtrls_->ambienceShimmerSpread = 0.f;
+        patchCtrls_->ambienceShimmerTone = kShimmerToneDefault;
+        patchCtrls_->ambienceShimmerClimb = kShimmerClimbDefault;
+        patchCtrls_->ambienceShimmerGrain = kShimmerGrainDefault;
 
         // Modulation
         patchCtrls_->filterCutoffModAmount = 0.5f;
@@ -152,9 +156,9 @@ public:
         faders_[PARAM_FADER_RESONATOR_VOL] =
             FaderController::create(patchState_, &patchCtrls_->resonatorVol);
         faders_[PARAM_FADER_ECHO_VOL] =
-            FaderController::create(patchState_, &patchCtrls_->echoVol);
+            FaderController::create(patchState_, &patchCtrls_->echoVol, &patchCtrls_->ambienceShimmerGrain);
         faders_[PARAM_FADER_AMBIENCE_VOL] =
-            FaderController::create(patchState_, &patchCtrls_->ambienceVol);
+            FaderController::create(patchState_, &patchCtrls_->ambienceVol, &patchCtrls_->ambienceShimmerClimb);
 
         knobs_[PARAM_KNOB_FILTER_CUTOFF] = KnobController::create(patchState_,
             &cutoff_, &patchCtrls_->filterMode,
@@ -172,7 +176,7 @@ public:
             &patchCtrls_->resonatorTuneRndAmount, 0.005f);
         knobs_[PARAM_KNOB_RESONATOR_FEEDBACK] =
             KnobController::create(patchState_, &patchCtrls_->resonatorFeedback,
-                NULL, &patchCtrls_->resonatorFeedbackModAmount,
+                &patchCtrls_->ambienceShimmerTone, &patchCtrls_->resonatorFeedbackModAmount,
                 &patchCtrls_->resonatorFeedbackCvAmount,
                 &patchCtrls_->resonatorFeedbackRndAmount);
 
@@ -197,7 +201,7 @@ public:
             &patchCtrls_->ambienceDecayRndAmount);
 
         knobs_[PARAM_KNOB_MOD_LEVEL] = KnobController::create(patchState_, 
-            &patchCtrls_->modLevel, NULL,
+            &patchCtrls_->modLevel, &patchCtrls_->ambienceShimmerSpread,
             NULL, NULL, &patchCtrls_->modLevelRndAmount);
         knobs_[PARAM_KNOB_MOD_SPEED] = KnobController::create(patchState_, 
             &patchCtrls_->modSpeed, &patchCtrls_->modType,
@@ -360,6 +364,10 @@ public:
             knobs_[PARAM_KNOB_AMBIENCE_DECAY]->SetValue(cfg[6] / 8192.f, LockableParamName::PARAM_LOCKABLE_ALT); // Ambience shimmer
             // Saved relative to the default, so saves from before it existed (0) load as the default.
             knobs_[PARAM_KNOB_ECHO_REPEATS]->SetValue(cfg[7] / 8192.f + kShimmerIntervalDefault, LockableParamName::PARAM_LOCKABLE_ALT); // Ambience shimmer interval
+            knobs_[PARAM_KNOB_RESONATOR_FEEDBACK]->SetValue(cfg[8] / 8192.f + kShimmerToneDefault, LockableParamName::PARAM_LOCKABLE_ALT); // Ambience shimmer tone, relative like the interval
+            knobs_[PARAM_KNOB_MOD_LEVEL]->SetValue(cfg[9] / 8192.f, LockableParamName::PARAM_LOCKABLE_ALT); // Ambience shimmer spread
+            faders_[PARAM_FADER_AMBIENCE_VOL]->SetValue(cfg[10] / 8192.f + kShimmerClimbDefault, LockableParamName::PARAM_LOCKABLE_ALT); // Ambience shimmer climb, relative like the interval
+            faders_[PARAM_FADER_ECHO_VOL]->SetValue(cfg[11] / 8192.f + kShimmerGrainDefault, LockableParamName::PARAM_LOCKABLE_ALT); // Ambience shimmer grain, relative like the interval
         }
         Resource::destroy(resource);
     }
@@ -455,6 +463,10 @@ public:
             values[5] = patchCtrls_->resonatorDissonance;
             values[6] = patchCtrls_->ambienceShimmer;
             values[7] = patchCtrls_->ambienceShimmerInterval - kShimmerIntervalDefault;
+            values[8] = patchCtrls_->ambienceShimmerTone - kShimmerToneDefault;
+            values[9] = patchCtrls_->ambienceShimmerSpread;
+            values[10] = patchCtrls_->ambienceShimmerClimb - kShimmerClimbDefault;
+            values[11] = patchCtrls_->ambienceShimmerGrain - kShimmerGrainDefault;
             break;
         case FUNC_MODE_MOD:
             values[0] = patchCtrls_->ambienceDecayModAmount;
@@ -704,6 +716,9 @@ public:
             patchState_->funcMode = funcMode;
             for (size_t i = 0; i < PARAM_KNOB_LAST; i++) {
                 knobs_[i]->SetFuncMode(patchState_->funcMode);
+            }
+            for (size_t i = 0; i < PARAM_FADER_LAST; i++) {
+                faders_[i]->SetFuncMode(patchState_->funcMode);
             }
             mapButton_->SetFuncMode(patchState_->funcMode);
             randomButton_->SetFuncMode(patchState_->funcMode);

@@ -305,6 +305,7 @@ private:
     PitchShifter *shifters_[2];
     HysteresisQuantizer shimmerIntervalQuantizer_;
     int shimmerRatioIndex_;
+    float shimmerTone_, shimmerGrain_, shimmerClimb_;
 
     EnvFollower* ef_[2];
     Compressor* comp_[2];
@@ -381,8 +382,43 @@ private:
 
         shimmerRatioIndex_ = index;
         patchState_->shimmerIntervalFlag = true;
-        shifters_[LEFT_CHANNEL]->SetRatio(kShimmerRatios[index]);
-        shifters_[RIGHT_CHANNEL]->SetRatio(kShimmerRatios[index]);
+    }
+
+    void SetShimmerSpread(float value)
+    {
+        // Left and right are detuned in opposite directions. The tails cross
+        // over on every pass, so the detune alternates instead of adding up.
+        float spread = powf(2.f, value * kShimmerSpreadMaxCents / 1200.f);
+        float ratio = kShimmerRatios[shimmerRatioIndex_];
+        shifters_[LEFT_CHANNEL]->SetRatio(ratio * spread);
+        shifters_[RIGHT_CHANNEL]->SetRatio(ratio / spread);
+    }
+
+    void SetShimmerGrain(float value)
+    {
+        if (value == shimmerGrain_)
+        {
+            return;
+        }
+
+        shimmerGrain_ = value;
+        float window = kShimmerWindowMinSamples * powf((float)kShimmerWindowMaxSamples / kShimmerWindowMinSamples, value);
+        shifters_[LEFT_CHANNEL]->SetWindow(window);
+        shifters_[RIGHT_CHANNEL]->SetWindow(window * kShimmerWindowRightScale);
+    }
+
+    void SetShimmerTone(float value)
+    {
+        if (value == shimmerTone_)
+        {
+            return;
+        }
+
+        shimmerTone_ = value;
+        float f = kShimmerToneMinHz * powf(kShimmerToneMaxHz / kShimmerToneMinHz, value);
+        float coeff = 1.f - expf(-2.f * M_PI * f / patchState_->sampleRate);
+        shifters_[LEFT_CHANNEL]->SetLpCoeff(coeff);
+        shifters_[RIGHT_CHANNEL]->SetLpCoeff(coeff);
     }
 
     void SetSpacetime(float value)
@@ -449,7 +485,8 @@ public:
             dampFilters_[i] = Damp::create(patchState_->sampleRate);
             diffusers_[i] = Diffuse::create();
             reversers_[i] = ReversedBuffer::create(kAmbienceBufferSize);
-            shifters_[i] = PitchShifter::create(kShimmerWindowSamples + i * kShimmerWindowOffsetSamples, kShimmerRatios[kShimmerDefaultRatioIndex]);
+            float scale = i == RIGHT_CHANNEL ? kShimmerWindowRightScale : 1.f;
+            shifters_[i] = PitchShifter::create(kShimmerWindowSamples * scale, kShimmerRatios[kShimmerDefaultRatioIndex], kShimmerWindowMaxSamples * scale);
             ef_[i] = EnvFollower::create();
             dc_[i] = DcBlockingFilter::create();
             comp_[i] = Compressor::create(patchState_->sampleRate);
@@ -472,6 +509,9 @@ public:
         shimmer_ = 0.f;
         shimmerIntervalQuantizer_.Init(kShimmerNofRatios, 0.15f, false);
         shimmerRatioIndex_ = kShimmerDefaultRatioIndex;
+        shimmerTone_ = -1.f;
+        shimmerGrain_ = -1.f;
+        shimmerClimb_ = kShimmerClimbDefault;
         patchState_->shimmerIntervalFlag = false;
         xi_ = 1.f / patchState_->blockSize;
     }
@@ -517,6 +557,9 @@ public:
         SetSpacetime(t);
 
         SetShimmerInterval(patchCtrls_->ambienceShimmerInterval);
+        SetShimmerSpread(patchCtrls_->ambienceShimmerSpread);
+        SetShimmerTone(patchCtrls_->ambienceShimmerTone);
+        SetShimmerGrain(patchCtrls_->ambienceShimmerGrain);
 
         float r = 1.f - reverse_;
         float x = 0;
@@ -524,6 +567,7 @@ public:
         ParameterInterpolator volParam = ParameterInterpolator(&dryWet_, patchCtrls_->ambienceVol, size);
         // Squared for finer control over the subtle amounts.
         ParameterInterpolator shimmerParam = ParameterInterpolator(&shimmer_, patchCtrls_->ambienceShimmer * patchCtrls_->ambienceShimmer, size);
+        ParameterInterpolator climbParam = ParameterInterpolator(&shimmerClimb_, patchCtrls_->ambienceShimmerClimb, size);
 
         for (size_t i = 0; i < size; i++)
         {
@@ -541,12 +585,16 @@ public:
             // diffusers. The tail itself is left alone, so it decays as it
             // would without shimmer: taking the shifted part out of it
             // drains the played notes within a few passes.
+            // Climb sets what's shifted: the tails, so every pass climbs
+            // again, or the input, for a single shifted layer, or a mix.
+            // At full shimmer the single layer is as loud as the input.
             // The shifters always run to keep their buffers current.
             float s = shimmerParam.Next() * kShimmerMaxAmount;
+            float c = climbParam.Next();
             float leftTail = diffusers_[RIGHT_CHANNEL]->GetFbOut();
             float rightTail = diffusers_[LEFT_CHANNEL]->GetFbOut();
-            leftTail += shifters_[LEFT_CHANNEL]->Process(leftTail) * s;
-            rightTail += shifters_[RIGHT_CHANNEL]->Process(rightTail) * s;
+            leftTail += shifters_[LEFT_CHANNEL]->Process(leftTail * c + left * (1.f - c) * kShimmerInputGain) * s;
+            rightTail += shifters_[RIGHT_CHANNEL]->Process(rightTail * c + right * (1.f - c) * kShimmerInputGain) * s;
 
             float leftFb = dampFilters_[LEFT_CHANNEL]->Process(left + leftTail);
             float rightFb = dampFilters_[RIGHT_CHANNEL]->Process(right + rightTail);

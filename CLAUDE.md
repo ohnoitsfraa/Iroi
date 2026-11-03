@@ -36,6 +36,30 @@ PRs against Befaco unless asked.
   Saved as ALT `values[7]` relative to `kShimmerIntervalDefault`, so old saves
   (0) load as the octave. MAP blinks once per step while SHIFT is held
   (`shimmerIntervalFlag`, same pattern as the SHIFT blink for filter mode).
+- SHIFT + RESONATOR FEEDBACK = `ambienceShimmerTone`: the shifter LP,
+  1.2–24 kHz exponential, default 0.5 (~5.4 kHz, the old fixed value).
+  SHIFT + MOD LEVEL = `ambienceShimmerSpread`: L/R ratios detuned ± up to
+  30 cents, default 0. The cross-feedback flips the detune each pass, so it
+  doesn't add up. Saved as ALT `values[8]` (relative to the default) and
+  `values[9]`. Measured: default tone matches the old render within 0.1 dB.
+  Tone 0 darkens a lot, the top half matters only with bright spacetime.
+  Spread makes the L/R correlation swing (sd 0.09 → 0.28) and at mid
+  settings averages negative (−0.47 at 0.5), so mono sums lose ~3 dB of the
+  tail. CPU unchanged (88–89%).
+- Faders got an ALT layer (`FaderController` now holds MAIN + ALT
+  `LockableParam`s and follows `SetFuncMode` like the knobs). Holding SHIFT
+  and moving a fader sets its ALT value; the volume stays put and picks up
+  again on the next move without SHIFT.
+  - SHIFT + AMBIENCE fader = `ambienceShimmerClimb`: what the shifters get,
+    the tails (1, default, every pass climbs) or the input (0, one shifted
+    layer, `kShimmerInputGain` 2 so it's as loud as the input at full
+    shimmer). At climb 0 the layer is clear while playing but fades faster
+    than the body of the tail (the reverb damps highs, nothing tops it up).
+  - SHIFT + ECHO fader = `ambienceShimmerGrain`: shifter window 10–100 ms
+    exponential, default `log10(5)` = the old 50 ms exactly. Right window is
+    ×1.125 (was +300 samples). The window glides (~40 ms) to avoid clicks.
+  - Saved as ALT `values[10]`/`[11]`, relative to their defaults.
+  - Memory +20 KB (100 ms buffers), CPU unchanged (89–90%).
 - No MIDI CC for shimmer (MIDI CC numbers are the `ParamMidi` enum index and
   every `midiOuts_` entry must be created, so adding one needs care).
 
@@ -71,8 +95,10 @@ PRs against Befaco unless asked.
     −5 to +1.7 dB on sines depending on how the two taps line up.
 - ARM build of the additive version: text 79751.
 - On hardware (2026-11-03): commit f2b02a1 stored in slot 1, the user hears
-  the shimmer and the interval steps, MAP blink works. Device reports CPU 89%
-  with it running (stock not measured, so the shimmer's share is unknown).
+  the shimmer and the interval steps, MAP blink works.
+- CPU as reported by `tools/owl.sh status`, same saved settings: stock
+  (e8b8dda) 83%, shimmer 89–90%. The shifters always run, so that ~7% is
+  fixed. Memory +20 KB (shifter buffers). About 10% headroom left.
   After a store the patch restarts with the saved settings, so shimmer comes
   back at the saved amount (0 for saves from before it existed).
 

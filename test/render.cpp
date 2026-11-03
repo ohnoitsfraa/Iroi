@@ -5,7 +5,7 @@
 //   render in.wav out.wav [key=value ...]
 //   render --demo out.wav            writes a dry test source
 //
-// Keys: shimmer, interval, decay, spacetime, ambvol, autopan, echovol, resovol,
+// Keys: shimmer, interval, spread, tone, climb, grain, decay, spacetime, ambvol, autopan, echovol, resovol,
 // cutoff (0..1 of the note range), tail (seconds of silence appended).
 // Input can be 16/24/32-bit PCM or 32-bit float, mono or stereo. Anything
 // not at 48 kHz is linearly resampled. Output is 32-bit float stereo.
@@ -222,6 +222,10 @@ static void InitCtrls(PatchCtrls& c)
     c.ambienceAutoPan = 0.f;
     c.ambienceShimmer = 0.f;
     c.ambienceShimmerInterval = kShimmerIntervalDefault;
+    c.ambienceShimmerSpread = 0.f;
+    c.ambienceShimmerTone = kShimmerToneDefault;
+    c.ambienceShimmerClimb = kShimmerClimbDefault;
+    c.ambienceShimmerGrain = kShimmerGrainDefault;
     c.filterCutoffModAmount = 0.5f;
     c.filterCutoffCvAmount = 1.f;
     c.resonatorTuneCvAmount = 1.f;
@@ -260,6 +264,10 @@ static bool SetCtrl(PatchCtrls& c, float& tail, const char* arg)
     float v = atof(eq + 1);
     if (key == "shimmer") c.ambienceShimmer = v;
     else if (key == "interval") c.ambienceShimmerInterval = v;
+    else if (key == "spread") c.ambienceShimmerSpread = v;
+    else if (key == "tone") c.ambienceShimmerTone = v;
+    else if (key == "climb") c.ambienceShimmerClimb = v;
+    else if (key == "grain") c.ambienceShimmerGrain = v;
     else if (key == "decay") c.ambienceDecay = v;
     else if (key == "spacetime") c.ambienceSpacetime = v;
     else if (key == "ambvol") c.ambienceVol = v;

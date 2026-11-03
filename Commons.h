@@ -128,12 +128,22 @@ constexpr float kAmbienceInfiniteFeedbackThreshold = 0.97f;
 constexpr float kAmbienceInfiniteFeedbackLevel = 1.1f;
 
 constexpr int32_t kShimmerWindowSamples = 2400; // 50 ms @ audio rate
-constexpr int32_t kShimmerWindowOffsetSamples = 300; // Right channel window is longer, for decorrelation
+constexpr float kShimmerWindowRightScale = 1.125f; // Right channel window is longer, for decorrelation
+constexpr int32_t kShimmerWindowMinSamples = 480; // 10 ms
+constexpr int32_t kShimmerWindowMaxSamples = 4800; // 100 ms
+constexpr float kShimmerWindowSlew = 0.0005f; // ~40 ms glide when the grain changes
+constexpr float kShimmerGrainDefault = 0.69897f; // log10(5): kShimmerWindowSamples between the min and max
+constexpr float kShimmerClimbDefault = 1.f; // Fully climbing, as before the control existed
+constexpr float kShimmerInputGain = 2.f; // The input is shifted only once, no passes build it up
 constexpr int32_t kShimmerMinDelaySamples = 2;
 constexpr int kShimmerNofRatios = 6;
 constexpr float kShimmerRatios[kShimmerNofRatios] = { 0.5f, 4.f / 3.f, 1.5f, 2.f, 3.f, 4.f }; // Octave down, fourth, fifth, octave, octave + fifth, two octaves
 constexpr int kShimmerDefaultRatioIndex = 3; // One octave up
 constexpr float kShimmerIntervalDefault = 0.6f; // Knob position of the default ratio
+constexpr float kShimmerSpreadMaxCents = 30.f; // Left and right detuned by up to this, in opposite directions
+constexpr float kShimmerToneMinHz = 1200.f;
+constexpr float kShimmerToneMaxHz = 24000.f;
+constexpr float kShimmerToneDefault = 0.5f; // ~5.4 kHz, close to kShimmerLpCoeff
 constexpr float kShimmerLpCoeff = 0.5f; // ~5.3 kHz @ audio rate, tames the climbing octaves
 constexpr float kShimmerMaxAmount = 0.5f; // Level of the shifted copy added to the tail on each pass
 
@@ -198,6 +208,10 @@ struct PatchCtrls
     float ambienceAutoPan;
     float ambienceShimmer;
     float ambienceShimmerInterval;
+    float ambienceShimmerSpread;
+    float ambienceShimmerTone;
+    float ambienceShimmerClimb;
+    float ambienceShimmerGrain;
 
     float modLevel;
     float modLevelRndAmount;

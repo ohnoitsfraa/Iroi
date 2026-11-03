@@ -664,15 +664,19 @@ public:
 class FaderController : public CatchUpController
 {
 private:
-    LockableParam lockableParam_;
+    // Faders only have the main and the ALT (SHIFT) parameter.
+    LockableParam lockableParams_[PARAM_LOCKABLE_ALT + 1];
+    LockableParamName selectedParam_;
 
     float scale_;
 
 public:
     FaderController() {}
-    FaderController(PatchState* patchState, float* param, float lpCoeff, float movementDelta, float scale)
+    FaderController(PatchState* patchState, float* param, float* altParam, float lpCoeff, float movementDelta, float scale)
     {
-        lockableParam_.Init(patchState, param, LockableParamName::PARAM_LOCKABLE_MAIN, ParamState::PARAM_STATE_TRACKING);
+        lockableParams_[LockableParamName::PARAM_LOCKABLE_MAIN].Init(patchState, param, LockableParamName::PARAM_LOCKABLE_MAIN, ParamState::PARAM_STATE_TRACKING);
+        lockableParams_[LockableParamName::PARAM_LOCKABLE_ALT].Init(patchState, altParam, LockableParamName::PARAM_LOCKABLE_ALT, ParamState::PARAM_STATE_LOCKED, false, altParam != NULL);
+        selectedParam_ = LockableParamName::PARAM_LOCKABLE_MAIN;
 
         catchUp_ = ParamCatchUp::PARAM_CATCH_UP_NONE;
         movementDelta_ = movementDelta;
@@ -693,11 +697,12 @@ public:
     static FaderController* create(
         PatchState* patchState,
         float* param,
+        float* altParam = NULL,
         float lpCoeff = 0.f,
         float movementDelta = 0.f,
         float scale = 1.f
     ) {
-        return new FaderController(patchState, param, lpCoeff, movementDelta, scale);
+        return new FaderController(patchState, param, altParam, lpCoeff, movementDelta, scale);
     }
 
     static void destroy(FaderController* obj)
@@ -705,14 +710,49 @@ public:
         delete obj;
     }
 
-    inline void SetValue(float value)
+    inline void SetValue(float value, LockableParamName name = LockableParamName::PARAM_LOCKABLE_MAIN)
     {
-        lockableParam_.InitValue(value);
+        if (LockableParamName::PARAM_LOCKABLE_MAIN == name)
+        {
+            lockableParams_[name].InitValue(value);
+        }
+        else
+        {
+            lockableParams_[name].SetValue(value);
+        }
     }
 
     inline void Reset(FuncMode funcMode)
     {
-        lockableParam_.Realign();
+        lockableParams_[LockableParamName::PARAM_LOCKABLE_MAIN].Realign();
+    }
+
+    // Same as KnobController::SetFuncMode, for the ALT parameter only.
+    inline void SetFuncMode(FuncMode funcMode)
+    {
+        LockableParamName selectedParam = FUNC_MODE_ALT == funcMode
+            ? LockableParamName::PARAM_LOCKABLE_ALT
+            : LockableParamName::PARAM_LOCKABLE_MAIN;
+
+        if (selectedParam == selectedParam_)
+        {
+            return;
+        }
+
+        selectedParam_ = selectedParam;
+
+        if (!lockableParams_[selectedParam_].IsActive()) {
+            selectedParam_ = LockableParamName::PARAM_LOCKABLE_MAIN;
+
+            return;
+        }
+
+        for (size_t i = 0; i <= LockableParamName::PARAM_LOCKABLE_ALT; i++)
+        {
+            lockableParams_[i].SelectParam(selectedParam_);
+            lockableParams_[i].Lock();
+        }
+        lockableParams_[selectedParam_].Unlock();
     }
 
     inline void Read(ParamFader fader)
@@ -773,14 +813,29 @@ public:
             samplesSinceStartMoving_ = 0;
         }
 
-        lockableParam_.Process(ctrlValue_, moving_);
+        for (size_t i = 0; i <= LockableParamName::PARAM_LOCKABLE_ALT; i++)
+        {
+            lockableParams_[i].Process(ctrlValue_, moving_);
+        }
 
         return moving_;
     }
 
     inline ParamCatchUp GetCatchUpState()
     {
-        ParamCatchUp catchUp = lockableParam_.GetCatchUpState();
+        ParamCatchUp catchUp = ParamCatchUp::PARAM_CATCH_UP_NONE;
+
+        for (size_t i = 0; i <= LockableParamName::PARAM_LOCKABLE_ALT; i++)
+        {
+            if (lockableParams_[i].IsActive())
+            {
+                catchUp = lockableParams_[i].GetCatchUpState();
+                if (ParamCatchUp::PARAM_CATCH_UP_NONE != catchUp)
+                {
+                    break;
+                }
+            }
+        }
 
         if (catchUp != catchUp_)
         {
