@@ -70,7 +70,11 @@ PRs against Befaco unless asked.
   - Shifter alone, RMS gain: about −6.5 dB on white noise (mostly the LP), and
     −5 to +1.7 dB on sines depending on how the two taps line up.
 - ARM build of the additive version: text 79751.
-- NOT yet: listening on hardware.
+- On hardware (2026-11-03): commit f2b02a1 stored in slot 1, the user hears
+  the shimmer and the interval steps, MAP blink works. Device reports CPU 89%
+  with it running (stock not measured, so the shimmer's share is unknown).
+  After a store the patch restarts with the saved settings, so shimmer comes
+  back at the saved amount (0 for saves from before it existed).
 
 ## Build and flash
 
@@ -92,7 +96,13 @@ PRs against Befaco unless asked.
   MACOSX_DEPLOYMENT_TARGET=12.0 ARCHS=x86_64 CODE_SIGNING_ALLOWED=NO` in
   `Builds/MacOSX`, copied to `OwlProgram/Tools/FirmwareSender`.
   `Tools/FirmwareSender -l` lists MIDI ports.
-- From OwlProgram (all with `TOOLROOT=...` above):
+- **Use `tools/owl.sh build|load|store [SLOT]|status`.** `Tools/FirmwareSender`
+  can list ports but not send on this Mac (CoreMIDI error -50 from its old
+  JUCE), so `make load`/`store` fail. The script builds, has FirmwareSender
+  only write the sysex, and sends it with `tools/sendsyx.swift`. `status`
+  (`tools/owlstatus.swift`) asks the module for its patch, CPU and errors.
+  The Swift tools compile on first use into `tools/build/` (git-ignored).
+- The raw make targets, for reference (all with `TOOLROOT=...` above):
   - `make PLATFORM=OWL3 CONFIG=Release libs` (once, done)
   - `make PLATFORM=OWL3 CONFIG=Release PATCHSOURCE=../iroi-shimmer PATCHNAME=Iroi_1_0_1 clean load`
     runs from RAM (power cycle restores the stored patch), use this to try things
